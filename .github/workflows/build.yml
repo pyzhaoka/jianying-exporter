@@ -17,13 +17,24 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller==6.2.0
 
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed --icon=src/icon.ico src/main.py
-          ls -la dist/
+          pyinstaller --onefile --windowed --icon=src/icon.ico --add-data "src/icon.ico;." src/main.py
+          # 修复Windows下的ls命令问题
+          dir dist\ /s /b
+
+      - name: Verify EXE
+        run: |
+          if not exist dist\main.exe (
+            echo "::error::EXE file not generated!"
+            exit 1
+          )
+          echo "EXE size:"
+          dir dist\main.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -31,13 +42,3 @@ jobs:
           name: jianying-exporter
           path: dist/main.exe
           retention-days: 5
-
-      - name: Create Release
-        if: success()
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            dist/main.exe
-          draft: false
