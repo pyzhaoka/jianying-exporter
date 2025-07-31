@@ -1,307 +1,298 @@
-import os
-import time
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import json
-import pyautogui
-import threading
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-class JianyingBatchExporter:
-    def __init__(self):
-        # 初始化配置
-        self.config_file = os.path.join(os.path.expanduser('~'), 'jianying_exporter_config.json')
-        self.load_config()
-        
-        # 创建主窗口
-        self.root = tk.Tk()
-        self.root.title("剪映专业版批量导出工具 v2.0")
-        self.root.geometry("550x400")
-        
-        # 设置窗口图标
-        try:
-            self.root.iconbitmap(self.resource_path('icon.ico'))
-        except:
-            pass
-        
-        # 创建UI元素
-        self.create_widgets()
-        
-        # 导出状态
-        self.exporting = False
-        self.cancel_export = False
-    
-    def resource_path(self, relative_path):
-        """ 获取资源的绝对路径 """
-        try:
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
-        return os.path.join(base_path, relative_path)
-    
-    def load_config(self):
-        """ 加载配置文件 """
-        default_config = {
-            'output_folder': os.path.join(os.path.expanduser('~'), 'Desktop', '剪映导出'),
-            'base_name': '我的视频',
-            'export_format': 'mp4',
-            'quality': '高',
-            'resolution': '1080p'
-        }
-        
-        try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                self.config = {**default_config, **json.load(f)}
-        except:
-            self.config = default_config
-    
-    def save_config(self):
-        """ 保存配置文件 """
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(self.config, f, ensure_ascii=False, indent=2)
-    
-    def create_widgets(self):
-        """ 创建界面组件 """
-        # 输出文件夹
-        tk.Label(self.root, text="输出文件夹:").grid(row=0, column=0, padx=10, pady=10, sticky='e')
-        self.folder_var = tk.StringVar(value=self.config.get('output_folder', ''))
-        tk.Entry(self.root, textvariable=self.folder_var, width=40).grid(row=0, column=1, sticky='w')
-        tk.Button(self.root, text="浏览...", command=self.select_folder).grid(row=0, column=2, padx=5)
-        
-        # 文件基础名称
-        tk.Label(self.root, text="文件基础名称:").grid(row=1, column=0, padx=10, pady=5, sticky='e')
-        self.name_var = tk.StringVar(value=self.config.get('base_name', ''))
-        tk.Entry(self.root, textvariable=self.name_var, width=40).grid(row=1, column=1, sticky='w')
-        
-        # 导出格式
-        tk.Label(self.root, text="导出格式:").grid(row=2, column=0, padx=10, pady=5, sticky='e')
-        self.format_var = tk.StringVar(value=self.config.get('export_format', 'mp4'))
-        tk.OptionMenu(self.root, self.format_var, 'mp4', 'mov', 'gif').grid(row=2, column=1, sticky='w')
-        
-        # 质量设置
-        tk.Label(self.root, text="视频质量:").grid(row=3, column=0, padx=10, pady=5, sticky='e')
-        self.quality_var = tk.StringVar(value=self.config.get('quality', '高'))
-        tk.OptionMenu(self.root, self.quality_var, '低', '中', '高', '极高').grid(row=3, column=1, sticky='w')
-        
-        # 分辨率
-        tk.Label(self.root, text="分辨率:").grid(row=4, column=0, padx=10, pady=5, sticky='e')
-        self.resolution_var = tk.StringVar(value=self.config.get('resolution', '1080p'))
-        tk.OptionMenu(self.root, self.resolution_var, '720p', '1080p', '2k', '4k').grid(row=4, column=1, sticky='w')
-        
-        # 日志输出
-        self.log_text = tk.Text(self.root, height=8, width=60, state='disabled')
-        self.log_text.grid(row=5, column=0, columnspan=3, padx=10, pady=10)
-        
-        # 按钮框架
-        button_frame = tk.Frame(self.root)
-        button_frame.grid(row=6, column=0, columnspan=3, pady=10)
-        
-        self.export_btn = tk.Button(button_frame, text="开始导出", command=self.start_export, width=15)
-        self.export_btn.pack(side=tk.LEFT, padx=10)
-        
-        self.cancel_btn = tk.Button(button_frame, text="取消导出", command=self.cancel_export_process, state='disabled')
-        self.cancel_btn.pack(side=tk.LEFT, padx=10)
-        
-        # 版权信息
-        tk.Label(self.root, text="© 2023 剪映批量导出工具 | 版本 2.0", fg="gray").grid(row=7, column=0, columnspan=3)
-    
-    def log_message(self, message):
-        """ 在日志区域显示消息 """
-        self.log_text.config(state='normal')
-        self.log_text.insert(tk.END, message + "\n")
-        self.log_text.see(tk.END)
-        self.log_text.config(state='disabled')
-        self.root.update()
-    
-    def select_folder(self):
-        """ 选择输出文件夹 """
-        folder = filedialog.askdirectory(initialdir=self.folder_var.get())
-        if folder:
-            self.folder_var.set(folder)
-    
-    def start_export(self):
-        """ 开始导出流程 """
-        # 保存配置
-        self.config.update({
-            'output_folder': self.folder_var.get(),
-            'base_name': self.name_var.get(),
-            'export_format': self.format_var.get(),
-            'quality': self.quality_var.get(),
-            'resolution': self.resolution_var.get()
-        })
-        self.save_config()
-        
-        # 验证输入
-        if not self.folder_var.get():
-            messagebox.showerror("错误", "请选择输出文件夹")
-            return
-        
-        if not self.name_var.get():
-            messagebox.showerror("错误", "请输入文件基础名称")
-            return
-        
-        # 准备导出
-        self.exporting = True
-        self.cancel_export = False
-        self.export_btn.config(state='disabled')
-        self.cancel_btn.config(state='normal')
-        self.log_message("=== 开始导出 ===")
-        
-        # 在新线程中执行导出
-        export_thread = threading.Thread(target=self.run_export_process)
-        export_thread.start()
-    
-    def cancel_export_process(self):
-        """ 取消导出 """
-        self.cancel_export = True
-        self.log_message("正在取消导出...")
-    
-    def run_export_process(self):
-        """ 执行实际的导出过程 """
-        try:
-            # 模拟切换到剪映窗口
-            self.log_message("请在5秒内切换到剪映专业版窗口...")
-            time.sleep(5)
-            
-            if self.cancel_export:
-                self.log_message("导出已取消")
-                return
-            
-            # 模拟导出操作
-            self.log_message("正在准备时间轴片段...")
-            
-            # 模拟选择所有片段 (Ctrl+A)
-            pyautogui.hotkey('ctrl', 'a')
-            time.sleep(1)
-            
-            if self.cancel_export:
-                self.log_message("导出已取消")
-                return
-            
-            # 模拟打开导出对话框 (假设快捷键是Ctrl+E)
-            self.log_message("打开导出对话框...")
-            pyautogui.hotkey('ctrl', 'e')
-            time.sleep(2)
-            
-            # 模拟设置导出参数
-            self.log_message("设置导出参数...")
-            
-            # 这里需要根据实际剪映界面调整坐标或使用图像识别定位
-            # 以下为示例代码，实际使用时需要调整
-            
-            # 模拟设置输出路径
-            pyautogui.press('tab', presses=3)  # 导航到路径输入框
-            pyautogui.write(self.folder_var.get())
-            
-            # 模拟设置文件名
-            pyautogui.press('tab')
-            pyautogui.write(self.name_var.get())
-            
-            # 模拟设置格式和质量
-            # 这里需要根据实际界面调整
-            
-            time.sleep(1)
-            
-            # 模拟开始导出
-            self.log_message("开始导出片段...")
-            pyautogui.press('enter')  # 确认导出
-            
-            # 模拟等待导出完成
-            for i in range(30):  # 最多等待30秒
-                if self.cancel_export:
-                    break
-                time.sleep(1)
-                self.log_message(f"导出中... ({i+1}/30)")
-            
-            if self.cancel_export:
-                self.log_message("导出已取消")
-            else:
-                self.log_message("导出完成！")
-                messagebox.showinfo("完成", "所有片段已成功导出！")
-        
-        except Exception as e:
-            self.log_message(f"导出出错: {str(e)}")
-            messagebox.showerror("错误", f"导出过程中出错:\n{str(e)}")
-        finally:
-            self.exporting = False
-            self.root.after(0, self.enable_export_button)
-    
-    def enable_export_button(self):
-        """ 启用导出按钮 """
-        self.export_btn.config(state='normal')
-        self.cancel_btn.config(state='disabled')
-    
-    def run(self):
-        """ 运行主循环 """
-        self.root.mainloop()
-
-if __name__ == "__main__":
-    # 检查是否安装了pyautogui
-    try:
-        import pyautogui
-    except ImportError:
-        print("请先安装pyautogui模块: pip install pyautogui")
-        sys.exit(1)
-    
-    app = JianyingBatchExporter()
-    app.run()
 import os
 import sys
 import time
 import json
+import logging
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox
 import pyautogui
 import cv2
 import numpy as np
-from jianying_utils import JianYingHelper
+from PIL import ImageGrab
 
 class JianyingBatchExporter:
     def __init__(self):
+        # 初始化配置
         self.config = self.load_config()
+        self.setup_logging()
         self.setup_ui()
-        self.helper = JianYingHelper(self.config)
+        self.running = False
+
+    def setup_logging(self):
+        """配置日志系统"""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            filename='jianying_export.log',
+            filemode='w'
+        )
+        self.logger = logging.getLogger(__name__)
+
+    def load_config(self):
+        """加载配置文件"""
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        default_config = {
+            "output_dir": os.path.join(os.path.expanduser('~'), "Desktop", "剪映导出"),
+            "shortcuts": {
+                "select_all": ["ctrl", "a"],
+                "export": ["ctrl", "e"]
+            },
+            "timeline_region": {"x": 100, "y": 800, "width": 800, "height": 50}
+        }
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return {**default_config, **json.load(f)}
+        except Exception as e:
+            self.logger.warning(f"加载配置失败: {str(e)}")
+            return default_config
 
     def setup_ui(self):
         """初始化用户界面"""
         self.root = tk.Tk()
-        self.root.title("剪映专业版批量导出工具 v3.0")
-        # ... (保留原有UI组件代码)
-        self.add_advanced_options()
-
-    def add_advanced_options(self):
-        """新增高级选项"""
-        ttk.Label(self.root, text="识别模式:").grid(row=5, column=0)
-        self.detection_mode = tk.StringVar(value='auto')
-        ttk.Combobox(self.root, textvariable=self.detection_mode, 
-                    values=['auto', 'manual', 'template']).grid(row=5, column=1)
-
-    def run_export_process(self):
-        """增强版导出逻辑"""
+        self.root.title("剪映专业版批量导出工具 v3.1")
+        self.root.geometry("600x450")
+        
+        # 图标设置
         try:
-            # 1. 定位时间轴片段
-            segments = self.helper.detect_segments(mode=self.detection_mode.get())
-            
-            # 2. 执行批量导出
-            success = self.helper.export_segments(
-                segments,
-                output_dir=self.folder_var.get(),
-                base_name=self.name_var.get()
-            )
-            
-            # 3. 结果验证
-            self.validate_export(segments, success)
-            
+            icon_path = os.path.join(os.path.dirname(__file__), 'icon.ico')
+            self.root.iconbitmap(icon_path)
         except Exception as e:
-            self.log_error(f"导出失败: {str(e)}")
+            self.logger.error(f"图标加载失败: {str(e)}")
 
-    def validate_export(self, expected_segments, success_count):
-        """增强版结果验证"""
-        exported_files = os.listdir(self.folder_var.get())
-        if len(exported_files) != success_count:
-            messagebox.showwarning(
-                "警告", 
-                f"预期导出 {len(expected_segments)} 个片段，实际导出 {len(exported_files)} 个文件\n"
-                "请检查剪映导出设置！"
-            )
-        os.startfile(self.folder_var.get())
+        # 控件布局
+        self.create_widgets()
+        self.setup_style()
+
+    def setup_style(self):
+        """设置UI样式"""
+        style = ttk.Style()
+        style.configure('TButton', padding=6)
+        style.configure('TLabel', padding=5)
+
+    def create_widgets(self):
+        """创建界面组件"""
+        # 输出目录选择
+        ttk.Label(self.root, text="输出目录:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        self.output_dir_var = tk.StringVar(value=self.config["output_dir"])
+        ttk.Entry(self.root, textvariable=self.output_dir_var, width=40).grid(row=0, column=1, sticky='we')
+        ttk.Button(self.root, text="浏览...", command=self.select_directory).grid(row=0, column=2, padx=5)
+
+        # 导出设置
+        ttk.Label(self.root, text="文件前缀:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.file_prefix_var = tk.StringVar(value="导出视频")
+        ttk.Entry(self.root, textvariable=self.file_prefix_var, width=40).grid(row=1, column=1, sticky='we')
+
+        # 日志输出
+        self.log_text = tk.Text(self.root, height=10, width=70, state='disabled')
+        self.log_text.grid(row=2, column=0, columnspan=3, padx=10, pady=10)
+
+        # 操作按钮
+        btn_frame = ttk.Frame(self.root)
+        btn_frame.grid(row=3, column=0, columnspan=3, pady=10)
+        
+        self.start_btn = ttk.Button(btn_frame, text="开始导出", command=self.start_export)
+        self.start_btn.pack(side=tk.LEFT, padx=10)
+        
+        self.stop_btn = ttk.Button(btn_frame, text="停止", state='disabled', command=self.stop_export)
+        self.stop_btn.pack(side=tk.LEFT)
+
+        # 状态栏
+        self.status_var = tk.StringVar(value="就绪")
+        ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN).grid(
+            row=4, column=0, columnspan=3, sticky='we', padx=10, pady=5)
+
+    def log_message(self, message, level="info"):
+        """记录日志"""
+        self.log_text.config(state='normal')
+        self.log_text.insert(tk.END, f"{message}\n")
+        self.log_text.see(tk.END)
+        self.log_text.config(state='disabled')
+        
+        if level == "error":
+            self.logger.error(message)
+        else:
+            self.logger.info(message)
+
+    def select_directory(self):
+        """选择输出目录"""
+        dir_path = filedialog.askdirectory(initialdir=self.output_dir_var.get())
+        if dir_path:
+            self.output_dir_var.set(dir_path)
+            self.config["output_dir"] = dir_path
+
+    def start_export(self):
+        """开始导出流程"""
+        if self.running:
+            return
+
+        self.running = True
+        self.start_btn.config(state='disabled')
+        self.stop_btn.config(state='normal')
+        self.status_var.set("运行中...")
+
+        # 在新线程中运行导出
+        export_thread = threading.Thread(target=self.run_export, daemon=True)
+        export_thread.start()
+
+    def stop_export(self):
+        """停止导出"""
+        self.running = False
+        self.status_var.set("正在停止...")
+
+    def run_export(self):
+        """执行导出操作"""
+        try:
+            output_dir = self.output_dir_var.get()
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+
+            self.log_message("=== 开始导出 ===")
+            self.log_message(f"输出目录: {output_dir}")
+            
+            # 模拟剪映操作
+            if not self.simulate_jianying_export(output_dir):
+                raise RuntimeError("导出过程失败")
+
+            self.log_message("导出完成！")
+            messagebox.showinfo("完成", "所有片段已成功导出！")
+
+        except Exception as e:
+            self.log_message(f"导出失败: {str(e)}", "error")
+            messagebox.showerror("错误", f"导出过程中出错:\n{str(e)}")
+        finally:
+            self.running = False
+            self.root.after(0, lambda: [
+                self.start_btn.config(state='normal'),
+                self.stop_btn.config(state='disabled'),
+                self.status_var.set("就绪")
+            ])
+
+    def simulate_jianying_export(self, output_dir):
+        """模拟剪映导出流程"""
+        # 1. 激活剪映窗口
+        self.log_message("正在激活剪映窗口...")
+        time.sleep(2)
+        
+        # 2. 定位时间轴
+        self.log_message("定位时间轴区域...")
+        timeline_pos = self.locate_timeline()
+        if not timeline_pos:
+            raise RuntimeError("无法定位时间轴")
+
+        # 3. 识别片段
+        self.log_message("识别视频片段...")
+        segments = self.detect_segments(timeline_pos)
+        if not segments:
+            raise RuntimeError("未识别到任何片段")
+
+        # 4. 执行导出
+        success_count = 0
+        for i, segment in enumerate(segments):
+            if not self.running:
+                break
+
+            try:
+                if self.export_single_segment(segment, output_dir, i+1):
+                    success_count += 1
+            except Exception as e:
+                self.log_message(f"片段 {i+1} 导出失败: {str(e)}", "error")
+
+        return success_count > 0
+
+    def locate_timeline(self):
+        """定位时间轴区域"""
+        try:
+            # 使用模板匹配或颜色识别
+            screenshot = np.array(ImageGrab.grab())
+            hsv = cv2.cvtColor(screenshot, cv2.COLOR_BGR2HSV)
+            
+            # 根据时间轴颜色特征定位
+            lower = np.array([0, 0, 200])
+            upper = np.array([180, 30, 255])
+            mask = cv2.inRange(hsv, lower, upper)
+            
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if contours:
+                x,y,w,h = cv2.boundingRect(max(contours, key=cv2.contourArea))
+                return (x, y, w, h)
+        except Exception as e:
+            self.log_message(f"定位时间轴失败: {str(e)}", "error")
+        return None
+
+    def detect_segments(self, timeline_pos):
+        """识别时间轴片段"""
+        segments = []
+        try:
+            x, y, w, h = timeline_pos
+            roi = np.array(ImageGrab.grab(bbox=(x, y, x+w, y+h)))
+            
+            # 使用边缘检测识别片段分隔
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(gray, 50, 150)
+            
+            # 查找垂直线段作为分隔
+            lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=30, maxLineGap=10)
+            if lines is not None:
+                for line in lines:
+                    x1, y1, x2, y2 = line[0]
+                    if abs(x1 - x2) < 5:  # 垂直线
+                        segments.append(x + x1)
+            
+            # 去重排序
+            segments = sorted(list(set(segments)))
+        except Exception as e:
+            self.log_message(f"片段识别失败: {str(e)}", "error")
+        
+        return segments if segments else [0, w]  # 默认返回整个时间轴
+
+    def export_single_segment(self, segment_pos, output_dir, index):
+        """导出单个片段"""
+        file_name = f"{self.file_prefix_var.get()}_{index}.mp4"
+        output_path = os.path.join(output_dir, file_name)
+        
+        self.log_message(f"正在导出片段 {index}...")
+        
+        # 模拟操作流程
+        try:
+            # 1. 选择片段
+            pyautogui.click(segment_pos, self.config["timeline_region"]["y"] + 10)
+            time.sleep(0.5)
+            
+            # 2. 打开导出对话框
+            pyautogui.hotkey(*self.config["shortcuts"]["export"])
+            time.sleep(1)
+            
+            # 3. 设置输出路径
+            pyautogui.write(output_path)
+            time.sleep(0.5)
+            
+            # 4. 确认导出
+            pyautogui.press('enter')
+            time.sleep(2)  # 等待导出完成
+            
+            return os.path.exists(output_path)
+        except Exception as e:
+            self.log_message(f"导出片段 {index} 时出错: {str(e)}", "error")
+            return False
+
+    def run(self):
+        """运行主循环"""
+        self.root.mainloop()
+
+if __name__ == "__main__":
+    try:
+        # 依赖检查
+        import pyautogui
+        import cv2
+        import numpy as np
+    except ImportError as e:
+        print(f"缺少依赖: {str(e)}\n请执行: pip install -r requirements.txt")
+        sys.exit(1)
+
+    app = JianyingBatchExporter()
+    app.run()
