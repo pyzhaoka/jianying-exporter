@@ -9,6 +9,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate files
+        run: |
+          if not exist src\main.py (
+            echo "::error::main.py not found in src directory!"
+            exit 1
+          )
+          if not exist src\icon.ico (
+            echo "::warning::icon.ico not found, building without icon"
+          )
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -21,24 +31,43 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller==6.2.0
 
-      - name: Build EXE
-        shell: cmd  # 关键修复：使用CMD代替PowerShell
+      - name: Build EXE (with debug)
+        id: build
+        shell: cmd
         run: |
-          pyinstaller --onefile --windowed --icon=src/icon.ico --add-data "src/icon.ico;." src/main.py
-          dir dist\  # 简化的目录查看命令
+          set PYTHONUTF8=1
+          pyinstaller --noconfirm --clean --log-level DEBUG ^
+            --onefile --windowed ^
+            %ICON_OPT% ^
+            --add-data "src/icon.ico;." ^
+            src/main.py 2>&1 | tee build.log
+          
+          type build.log
+          if not exist dist\main.exe (
+            echo "::error::Build failed - no EXE generated"
+            exit 1
+          )
+        env:
+          ICON_OPT: ${{ contains(run.command, 'icon.ico') && '--icon=src/icon.ico' || '' }}
 
       - name: Verify EXE
         run: |
-          if not exist dist\main.exe (
-            echo "::error::EXE file not generated!"
-            exit 1
-          )
-          echo "File size:"
-          dir dist\main.exe
+          $exe = Get-Item 'dist\main.exe'
+          $minSize = 2MB
+          
+          echo "EXE Info:"
+          echo "Path: $($exe.FullName)"
+          echo "Size: $([math]::Round($exe.Length/1MB,2)) MB"
+          
+          if ($exe.Length -lt $minSize) {
+            echo "::warning::EXE file seems too small"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: jianying-exporter
-          path: dist/main.exe
-          retention-days: 5
+          path: |
+            dist/main.exe
+            build.log
+          retention-days: 3
