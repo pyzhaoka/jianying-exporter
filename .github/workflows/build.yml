@@ -1,35 +1,23 @@
 name: Build Executable
-
-on:
-  push:
-    branches: [ "main" ]  # 触发分支
-  workflow_dispatch:      # 允许手动触发
-
+on: [push, workflow_dispatch]
 jobs:
   build:
-    runs-on: windows-latest  # 使用 Windows 环境（PyInstaller 兼容性更好）
-
+    runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
-
+          python-version: '3.9'
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyinstaller
-
+          pip install pyinstaller opencv-python numpy
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed --icon=src/icon.ico src/main.py
-          ls dist/  # 验证生成文件
-
+          pyinstaller --onefile --windowed --icon=src/icon.ico --add-data "assets/*;assets/" src/main.py
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: jianying-exporter
-          path: dist/main.exe
+          path: dist/
