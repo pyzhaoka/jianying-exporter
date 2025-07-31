@@ -1,22 +1,13 @@
 {
-  "shortcuts": {
-    "select_all": ["ctrl", "a"],
-    "export": ["ctrl", "e"],
-    "next_segment": ["right"]
-  },
-  "ui_settings": {
-    "timeline_color_range": {
-      "min": [200, 200, 200],
-      "max": [255, 255, 255]
+    "output_dir": "",
+    "shortcuts": {
+        "select_all": ["ctrl", "a"],
+        "export": ["ctrl", "e"]
     },
-    "version": "6.1.0",
-    "compatibility": {
-      "min_version": "6.0.0",
-      "max_version": "6.5.0"
+    "timeline_region": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 50
     }
-  },
-  "advanced": {
-    "confidence_threshold": 0.85,
-    "scan_interval": 0.5
-  }
 }
