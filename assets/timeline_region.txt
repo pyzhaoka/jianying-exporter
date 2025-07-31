@@ -1,0 +1,6 @@
+{
+  "timeline_top_left": {"x": 250, "y": 800},
+  "timeline_bottom_right": {"x": 1200, "y": 850},
+  "export_button": {"x": 1500, "y": 200},
+  "resolution": "1920x1080"
+}
