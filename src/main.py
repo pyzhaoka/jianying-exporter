@@ -244,3 +244,64 @@ if __name__ == "__main__":
     
     app = JianyingBatchExporter()
     app.run()
+import os
+import sys
+import time
+import json
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import pyautogui
+import cv2
+import numpy as np
+from jianying_utils import JianYingHelper
+
+class JianyingBatchExporter:
+    def __init__(self):
+        self.config = self.load_config()
+        self.setup_ui()
+        self.helper = JianYingHelper(self.config)
+
+    def setup_ui(self):
+        """初始化用户界面"""
+        self.root = tk.Tk()
+        self.root.title("剪映专业版批量导出工具 v3.0")
+        # ... (保留原有UI组件代码)
+        self.add_advanced_options()
+
+    def add_advanced_options(self):
+        """新增高级选项"""
+        ttk.Label(self.root, text="识别模式:").grid(row=5, column=0)
+        self.detection_mode = tk.StringVar(value='auto')
+        ttk.Combobox(self.root, textvariable=self.detection_mode, 
+                    values=['auto', 'manual', 'template']).grid(row=5, column=1)
+
+    def run_export_process(self):
+        """增强版导出逻辑"""
+        try:
+            # 1. 定位时间轴片段
+            segments = self.helper.detect_segments(mode=self.detection_mode.get())
+            
+            # 2. 执行批量导出
+            success = self.helper.export_segments(
+                segments,
+                output_dir=self.folder_var.get(),
+                base_name=self.name_var.get()
+            )
+            
+            # 3. 结果验证
+            self.validate_export(segments, success)
+            
+        except Exception as e:
+            self.log_error(f"导出失败: {str(e)}")
+
+    def validate_export(self, expected_segments, success_count):
+        """增强版结果验证"""
+        exported_files = os.listdir(self.folder_var.get())
+        if len(exported_files) != success_count:
+            messagebox.showwarning(
+                "警告", 
+                f"预期导出 {len(expected_segments)} 个片段，实际导出 {len(exported_files)} 个文件\n"
+                "请检查剪映导出设置！"
+            )
+        os.startfile(self.folder_var.get())
