@@ -1,0 +1,22 @@
+{
+  "shortcuts": {
+    "select_all": ["ctrl", "a"],
+    "export": ["ctrl", "e"],
+    "next_segment": ["right"]
+  },
+  "ui_settings": {
+    "timeline_color_range": {
+      "min": [200, 200, 200],
+      "max": [255, 255, 255]
+    },
+    "version": "6.1.0",
+    "compatibility": {
+      "min_version": "6.0.0",
+      "max_version": "6.5.0"
+    }
+  },
+  "advanced": {
+    "confidence_threshold": 0.85,
+    "scan_interval": 0.5
+  }
+}
