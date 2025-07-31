@@ -1,23 +1,43 @@
 name: Build Executable
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: windows-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
+          cache: 'pip'
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyinstaller opencv-python numpy
+          pip install pyinstaller==6.2.0
+
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed --icon=src/icon.ico --add-data "assets/*;assets/" src/main.py
+          pyinstaller --onefile --windowed --icon=src/icon.ico src/main.py
+          ls -la dist/
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: jianying-exporter
-          path: dist/
+          path: dist/main.exe
+          retention-days: 5
+
+      - name: Create Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            dist/main.exe
+          draft: false
